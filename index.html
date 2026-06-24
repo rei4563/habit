@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Pixel Habit Quest</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="PHQuest" />
+  <meta name="theme-color" content="#0f0520" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230f0520'/><text y='72' x='10' font-size='75'>⚔️</text></svg>" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { background: #0f0520; overscroll-behavior: none; }
+    @keyframes twinkle  { from{opacity:.2} to{opacity:1} }
+    @keyframes lvlUp    { 0%{transform:scale(1)} 50%{transform:scale(1.4)} 100%{transform:scale(1)} }
+    @keyframes fadeIn   { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes streak   { 0%{transform:scale(1)} 50%{transform:scale(1.08) rotate(-1deg)} 100%{transform:scale(1)} }
+    @keyframes pop      { 0%{transform:scale(1)} 40%{transform:scale(1.18)} 100%{transform:scale(1)} }
+    input { -webkit-appearance: none; border-radius: 0; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+function useParticles(canvasRef) {
+  const particles = useRef([]);
+  const raf = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+    resize();
+    window.addEventListener("resize", resize);
+    const loop = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.current = particles.current.filter(p => p.life > 0);
+      particles.current.forEach(p => {
+        ctx.globalAlpha = p.life;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+        p.x += p.vx; p.y += p.vy; p.vy += 0.18; p.life -= 0.022;
+      });
+      ctx.globalAlpha = 1;
+      raf.current = requestAnimationFrame(loop);
+    };
+    raf.current = requestAnimationFrame(loop);
+    return () => { cancelAnimationFrame(raf.current); window.removeEventListener("resize", resize); };
+  }, [canvasRef]);
+  const burst = useCallback((x, y) => {
+    const colors = ["#8B5CF6","#C4B5FD","#F0ABFC","#60A5FA","#FCD34D","#34D399"];
+    for (let i = 0; i < 24; i++) {
+      particles.current.push({
+        x, y,
+        vx: (Math.random()-.5)*7,
+        vy: (Math.random()-.5)*7 - 3,
+        size: Math.random()*7+2,
+        color: colors[Math.floor(Math.random()*colors.length)],
+        life: 1,
+      });
+    }
+  }, []);
+  return burst;
+}
+
+const STARS = Array.from({length:70},(_,i)=>({
+  id:i, x:Math.random()*100, y:Math.random()*100,
+  s:Math.random()*2.5+1, d:Math.random()*3
+}));
+function StarField() {
+  return (
+    <div style={{position:"fixed",inset:0,overflow:"hidden",pointerEvents:"none",zIndex:0}}>
+      {STARS.map(s=>(
+        <div key={s.id} style={{
+          position:"absolute", left:`${s.x}%`, top:`${s.y}%`,
+          width:s.s, height:s.s, background:"#C4B5FD",
+          animation:`twinkle 2s ${s.d}s infinite alternate`,
+        }}/>
+      ))}
+    </div>
+  );
+}
+
+const C = {
+  bg:"#0f0520", card:"rgba(45,27,105,0.6)", border:"rgba(139,92,246,0.3)",
+  purple:"#8B5CF6", light:"#C4B5FD", pink:"#F0ABFC",
+  text:"#EDE9FE", muted:"#7C3AED", gold:"#FCD34D", green:"#34D399",
+};
+const PX = {fontFamily:"'Courier New',monospace"};
+
+const DEFAULT_HABITS = [
+  {id:1,name:"英単語30個",icon:"📖",xp:10},
+  {id:2,name:"数学演習",icon:"✏️",xp:10},
+  {id:3,name:"筋トレ15分",icon:"💪",xp:10},
+  {id:4,name:"読書20分",icon:"📚",xp:10},
+  {id:5,name:"ストレッチ",icon:"🧘",xp:10},
+];
+
+const ACHIEVEMENTS = [
+  {id:"first",  label:"初達成",      icon:"🏆", cond:s=>s.totalDone>=1},
+  {id:"s7",     label:"7日連続",     icon:"🔥", cond:s=>s.streak>=7},
+  {id:"s30",    label:"30日連続",    icon:"🌙", cond:s=>s.streak>=30},
+  {id:"d100",   label:"100回達成",   icon:"💎", cond:s=>s.totalDone>=100},
+  {id:"lv5",    label:"Lv.5到達",    icon:"⚡", cond:s=>s.level>=5},
+  {id:"lv10",   label:"習慣マスター",icon:"👑", cond:s=>s.level>=10},
+  {id:"perfect",label:"完全達成",    icon:"✨", cond:s=>s.perfectDays>=1},
+];
+
+const WORLD = [
+  {need:0,  icon:"🌑", label:"何もない荒野"},
+  {need:1,  icon:"🏠", label:"小屋が建った"},
+  {need:3,  icon:"🌲", label:"木が育ち始めた"},
+  {need:5,  icon:"⛺", label:"キャンプが広がった"},
+  {need:8,  icon:"🏰", label:"城が現れた"},
+  {need:12, icon:"🔮", label:"魔法塔が聳え立つ"},
+  {need:18, icon:"🌆", label:"街が発展した"},
+  {need:25, icon:"🌟", label:"伝説の王国"},
+];
+
+const XP_PER_LV = 50;
+const getLv  = xp => Math.floor(xp/XP_PER_LV)+1;
+const getXPp = xp => ((xp%XP_PER_LV)/XP_PER_LV)*100;
+const getWorld = n => { let s=WORLD[0]; for(const w of WORLD){if(n>=w.need)s=w;else break;} return s; };
+
+const load = (key,def) => { try{ const v=localStorage.getItem(key); return v?JSON.parse(v):def; }catch(e){return def;} };
+const save = (key,val) => { try{ localStorage.setItem(key,JSON.stringify(val)); }catch(e){} };
+const todayKey = () => new Date().toISOString().slice(0,10);
+function App() {
+  const canvasRef = useRef(null);
+  const burst = useParticles(canvasRef);
+  const checkRefs = useRef({});
+
+  const [tab, setTab] = useState("home");
+  const [habits, setHabits] = useState(() => load("phq_habits", DEFAULT_HABITS));
+  const [checked, setChecked] = useState(() => {
+    const saved = load("phq_checked", {});
+    return saved.date === todayKey() ? saved.data : {};
+  });
+  const [stats, setStats] = useState(() => load("phq_stats", {xp:0,streak:0,totalDone:0,perfectDays:0,level:1}));
+  const [unlockedAch, setUnlockedAch] = useState(() => load("phq_ach", []));
+  const [lvlAnim, setLvlAnim] = useState(false);
+  const [newAch, setNewAch] = useState(null);
+  const [addMode, setAddMode] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newIcon, setNewIcon] = useState("⭐");
+
+  useEffect(()=>save("phq_habits",habits),[habits]);
+  useEffect(()=>save("phq_checked",{date:todayKey(),data:checked}),[checked]);
+  useEffect(()=>save("phq_stats",stats),[stats]);
+  useEffect(()=>save("phq_ach",unlockedAch),[unlockedAch]);
+
+  const checkedCount = Object.values(checked).filter(Boolean).length;
+  const total = habits.length;
+  const rate = total>0 ? Math.round(checkedCount/total*100) : 0;
+  const level = getLv(stats.xp);
+  const xpPct = getXPp(stats.xp);
+  const world = getWorld(stats.totalDone);
+
+  const check = (id) => {
+    if (checked[id]) return;
+    const rect = checkRefs.current[id]?.getBoundingClientRect();
+    if (rect) burst(rect.left+rect.width/2, rect.top+rect.height/2);
+    const newChecked = {...checked,[id]:true};
+    setChecked(newChecked);
+    const newXP = stats.xp+10;
+    const newTotal = stats.totalDone+1;
+    const newLv = getLv(newXP);
+    const allDone = Object.keys(newChecked).length===habits.length;
+    const newStats = {
+      ...stats, xp:newXP, totalDone:newTotal, level:newLv,
+      perfectDays: allDone ? stats.perfectDays+1 : stats.perfectDays,
+    };
+    if (newLv>stats.level){ setLvlAnim(true); setTimeout(()=>setLvlAnim(false),700); }
+    setStats(newStats);
+    for(const a of ACHIEVEMENTS){
+      if(!unlockedAch.includes(a.id)&&a.cond(newStats)){
+        setUnlockedAch(p=>[...p,a.id]);
+        setNewAch(a); setTimeout(()=>setNewAch(null),2800);
+        break;
+      }
+    }
+  };
+
+  const addHabit = () => {
+    if(!newName.trim()) return;
+    setHabits(p=>[...p,{id:Date.now(),name:newName.trim(),icon:newIcon,xp:10}]);
+    setNewName(""); setAddMode(false);
+  };
+
+  const removeHabit = (id) => {
+    setHabits(p=>p.filter(h=>h.id!==id));
+    setChecked(p=>{ const n={...p}; delete n[id]; return n; });
+  };
+
+  const ICONS = ["⭐","🎯","🎵","🏃","💻","🍎","💤","🧠","🎨","🌊"];
+
+  return (
+    <div style={{...PX, minHeight:"100vh", background:C.bg, color:C.text, position:"relative", paddingBottom:80}}>
+      <StarField/>
+      <canvas ref={canvasRef} style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:50,width:"100%",height:"100%"}}/>
+      {newAch&&(
+        <div style={{...PX,position:"fixed",top:24,left:"50%",transform:"translateX(-50%)",background:"rgba(139,92,246,0.97)",border:`2px solid ${C.gold}`,padding:"12px 24px",zIndex:200,fontSize:14,whiteSpace:"nowrap",animation:"fadeIn 0.3s ease",boxShadow:`0 0 24px ${C.purple}`}}>
+          {newAch.icon} 実績解除：{newAch.label}！
+        </div>
+      )}
+      <div style={{maxWidth:480,margin:"0 auto",position:"relative",zIndex:1}}>
+        <div style={{textAlign:"center",padding:"env(safe-area-inset-top,20px) 16px 0"}}>
+          <div style={{paddingTop:16,fontSize:20,fontWeight:"bold",color:C.light,letterSpacing:2}}>⚔ PIXEL HABIT QUEST ⚔</div>
+          <div style={{margin:"12px 16px 0"}}>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:11,color:C.muted,marginBottom:4}}>
+              <span style={lvlAnim?{animation:"lvlUp 0.7s ease",color:C.gold}:{}}>★ Lv.{level}</span>
+              <span>{stats.xp} XP</span>
+            </div>
+            <div style={{background:"rgba(139,92,246,0.2)",height:8,border:`1px solid ${C.border}`}}>
+              <div style={{height:"100%",background:`linear-gradient(90deg,${C.purple},${C.pink})`,width:`${xpPct}%`,transition:"width 0.5s ease"}}/>
+            </div>
+          </div>
+        </div>
+        <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,margin:"12px 16px 0"}}>
+          {[["home","🏠 ホーム"],["world","🌍 ワールド"],["achievements","🏆 実績"]].map(([t,lb])=>(
+            <button key={t} onClick={()=>setTab(t)} style={{...PX,flex:1,padding:"10px 4px",background:"none",border:"none",cursor:"pointer",fontSize:12,borderBottom:tab===t?`2px solid ${C.purple}`:"2px solid transparent",color:tab===t?C.light:C.muted}}>{lb}</button>
+          ))}
+        </div>
+        {tab==="home"&&(
+          <div style={{padding:16}}>
+            <div style={{...PX,background:C.card,border:`1px solid ${C.border}`,padding:"12px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:12,animation:"streak 3s ease-in-out infinite"}}>
+              <span style={{fontSize:28}}>🔥</span>
+              <div>
+                <div style={{fontSize:20,fontWeight:"bold",color:C.gold}}>{stats.streak}日連続</div>
+                <div style={{fontSize:11,color:C.muted}}>今日も続けよう！</div>
+              </div>
+            </div>
+            <div style={{...PX,background:C.card,border:`1px solid ${C.border}`,padding:"12px 16px",marginBottom:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",marginBottom:8,fontSize:12}}>
+                <span>今日の達成率</span>
+                <span style={{color:rate===100?C.gold:C.light,fontWeight:"bold"}}>{rate}%</span>
+              </div>
+              <div style={{background:"rgba(139,92,246,0.2)",height:10,border:`1px solid ${C.border}`}}>
+                <div style={{height:"100%",width:`${rate}%`,transition:"width 0.4s ease",background:rate===100?`linear-gradient(90deg,${C.gold},${C.pink})`:`linear-gradient(90deg,${C.purple},${C.pink})`}}/>
+              </div>
+              <div style={{fontSize:11,color:C.muted,marginTop:6}}>{checkedCount} / {total} 完了</div>
+            </div>
+            <div style={{...PX,fontSize:12,color:C.muted,marginBottom:8}}>▷ 今日のクエスト</div>
+            {habits.map(h=>(
+              <div key={h.id} style={{display:"flex",alignItems:"center",marginBottom:8,gap:6}}>
+                <div ref={el=>checkRefs.current[h.id]=el} onClick={()=>check(h.id)} style={{...PX,flex:1,background:checked[h.id]?"rgba(139,92,246,0.25)":C.card,border:`1px solid ${checked[h.id]?C.purple:C.border}`,padding:"13px 14px",cursor:checked[h.id]?"default":"pointer",display:"flex",alignItems:"center",gap:10,transition:"all 0.2s",boxShadow:checked[h.id]?`0 0 10px rgba(139,92,246,0.4)`:"none"}}>
+                  <div style={{width:22,height:22,border:`2px solid ${checked[h.id]?C.purple:C.muted}`,background:checked[h.id]?C.purple:"transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,color:"white",flexShrink:0,transition:"all 0.2s"}}>{checked[h.id]?"✓":""}</div>
+                  <span style={{fontSize:18}}>{h.icon}</span>
+                  <span style={{...PX,fontSize:14,flex:1,textDecoration:checked[h.id]?"line-through":"none",color:checked[h.id]?C.muted:C.text}}>{h.name}</span>
+                  <span style={{fontSize:11,color:C.purple}}>+{h.xp}XP</span>
+                </div>
+                <button onClick={()=>removeHabit(h.id)} style={{background:"none",border:`1px solid ${C.border}`,color:C.muted,width:32,height:32,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+              </div>
+            ))}
+            {addMode?(
+              <div style={{...PX,background:C.card,border:`1px solid ${C.purple}`,padding:14,marginTop:8}}>
+                <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+                  {ICONS.map(ic=>(<button key={ic} onClick={()=>setNewIcon(ic)} style={{fontSize:20,background:newIcon===ic?"rgba(139,92,246,0.4)":"transparent",border:`1px solid ${newIcon===ic?C.purple:C.border}`,padding:"4px 8px",cursor:"pointer"}}>{ic}</button>))}
+                </div>
+                <input value={newName} onChange={e=>setNewName(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addHabit()} placeholder="クエスト名を入力…" style={{...PX,width:"100%",background:"transparent",border:`1px solid ${C.border}`,color:C.text,padding:"9px",fontSize:14,outline:"none"}}/>
+                <div style={{display:"flex",gap:8,marginTop:10}}>
+                  <button onClick={addHabit} style={{...PX,flex:1,background:C.purple,border:"none",color:"white",padding:"9px",cursor:"pointer",fontSize:13}}>追加</button>
+                  <button onClick={()=>{setAddMode(false);setNewName("");}} style={{...PX,flex:1,background:"transparent",border:`1px solid ${C.border}`,color:C.muted,padding:"9px",cursor:"pointer",fontSize:13}}>キャンセル</button>
+                </div>
+              </div>
+            ):(
+              <button onClick={()=>setAddMode(true)} style={{...PX,width:"100%",marginTop:8,padding:"12px",background:"transparent",border:`1px dashed ${C.muted}`,color:C.muted,cursor:"pointer",fontSize:13}}>＋ クエストを追加</button>
+            )}
+          </div>
+        )}
+        {tab==="world"&&(
+          <div style={{padding:"20px 16px"}}>
+            <div style={{...PX,background:C.card,border:`1px solid ${C.border}`,padding:24,textAlign:"center",marginBottom:20}}>
+              <div style={{fontSize:80,marginBottom:16,filter:"drop-shadow(0 0 16px #8B5CF6)"}}>{world.icon}</div>
+              <div style={{fontSize:16,color:C.light,marginBottom:8}}>{world.label}</div>
+              <div style={{fontSize:11,color:C.muted}}>総達成数：{stats.totalDone} 回</div>
+              {(()=>{const idx=WORLD.findIndex(w=>w===world);const next=WORLD[idx+1];if(!next)return <div style={{fontSize:11,color:C.gold,marginTop:6}}>★ 最高段階に到達！</div>;return <div style={{fontSize:11,color:C.muted,marginTop:6}}>次：{next.icon} {next.label}（あと{next.need-stats.totalDone}回）</div>;})()}
+            </div>
+            <div style={{...PX,fontSize:12,color:C.muted,marginBottom:10}}>▷ 世界の発展ロードマップ</div>
+            {WORLD.map((w,i)=>{const done=stats.totalDone>=w.need;return(<div key={i} style={{...PX,display:"flex",alignItems:"center",gap:12,padding:"10px 12px",marginBottom:6,background:done?"rgba(139,92,246,0.15)":"rgba(0,0,0,0.2)",border:`1px solid ${done?C.purple:C.border}`,opacity:done?1:0.5}}><span style={{fontSize:22}}>{w.icon}</span><div style={{flex:1}}><div style={{fontSize:13,color:done?C.text:C.muted}}>{w.label}</div><div style={{fontSize:11,color:C.muted}}>達成 {w.need} 回〜</div></div>{done&&<span style={{fontSize:11,color:C.green}}>✓ 解放</span>}</div>);})}
+          </div>
+        )}
+        {tab==="achievements"&&(
+          <div style={{padding:16}}>
+            <div style={{...PX,fontSize:12,color:C.muted,marginBottom:12}}>{unlockedAch.length} / {ACHIEVEMENTS.length} 解除済み</div>
+            {ACHIEVEMENTS.map(a=>{const got=unlockedAch.includes(a.id);return(<div key={a.id} style={{...PX,background:got?"rgba(139,92,246,0.2)":"rgba(0,0,0,0.3)",border:`1px solid ${got?C.purple:C.border}`,padding:"14px 16px",marginBottom:8,display:"flex",alignItems:"center",gap:14,opacity:got?1:0.45,boxShadow:got?`0 0 10px rgba(139,92,246,0.3)`:"none"}}><span style={{fontSize:28,filter:got?"none":"grayscale(1)"}}>{a.icon}</span><div><div style={{fontSize:14,color:got?C.light:C.muted}}>{a.label}</div><div style={{fontSize:11,color:got?C.purple:C.muted}}>{got?"解除済み ✓":"???"}</div></div></div>);})}
+          </div>
+        )}
+      </div>
+      <div style={{...PX,position:"fixed",bottom:0,left:0,right:0,background:"rgba(15,5,32,0.97)",borderTop:`1px solid ${C.border}`,display:"flex",justifyContent:"space-around",paddingBottom:"env(safe-area-inset-bottom,0px)",zIndex:10}}>
+        {[["home","🏠","ホーム"],["world","🌍","ワールド"],["achievements","🏆","実績"]].map(([t,ic,lb])=>(<button key={t} onClick={()=>setTab(t)} style={{...PX,background:"none",border:"none",color:tab===t?C.light:C.muted,cursor:"pointer",fontSize:11,padding:"10px 20px",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}><span style={{fontSize:22}}>{ic}</span>{lb}</button>))}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
