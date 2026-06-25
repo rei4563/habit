@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>HUNTER PROTOCOL</title>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="HUNTER"/>
+<meta name="theme-color" content="#000814"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:#000814;color:#e0f7ff;font-family:'Courier New',monospace;overscroll-behavior:none;}
+input{-webkit-appearance:none;border-radius:0;font-family:'Courier New',monospace;color:#e0f7ff;}
+button{font-family:'Courier New',monospace;cursor:pointer;}
+@keyframes scanline{0%{top:-4px}100%{top:100vh}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes popIn{0%{transform:scale(0.85);opacity:0}60%{transform:scale(1.08)}100%{transform:scale(1);opacity:1}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes aura{0%,100%{box-shadow:0 0 12px #0a84ff,0 0 24px #0a84ff44}50%{box-shadow:0 0 20px #0a84ff,0 0 40px #0a84ff66}}
+@keyframes lvup{0%{opacity:0;transform:translate(-50%,-50%) scale(0.5)}15%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}85%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(0.9)}}
+@keyframes toastIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+#app{max-width:480px;margin:0 auto;min-height:100vh;position:relative;}
+.scanline{position:fixed;left:0;right:0;height:3px;background:linear-gradient(transparent,rgba(0,212,255,0.04),transparent);animation:scanline 5s linear infinite;pointer-events:none;z-index:999;}
+.crt{position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.07) 2px,rgba(0,0,0,0.07) 4px);pointer-events:none;z-index:998;}
+#header{padding:16px 16px 0;position:sticky;top:0;background:#000814;z-index:50;border-bottom:1px solid #0a84ff22;}
+#tabs{display:flex;border-bottom:1px solid #0a84ff33;}
+.tab-btn{flex:1;padding:10px 2px;background:none;border:none;border-bottom:2px solid transparent;color:#4a7a9b;font-size:9px;letter-spacing:1px;}
+.tab-btn.active{color:#00d4ff;border-bottom-color:#00d4ff;}
+#content{padding:14px 16px 90px;}
+.page{display:none;animation:fadeUp 0.25s ease;}
+.page.active{display:block;}
+#nav{position:fixed;bottom:0;left:0;right:0;background:rgba(0,8,20,0.97);border-top:1px solid #0a84ff33;display:flex;justify-content:space-around;padding-bottom:env(safe-area-inset-bottom,0);z-index:100;}
+.nav-btn{background:none;border:none;color:#4a7a9b;font-size:9px;letter-spacing:1px;padding:10px 12px;display:flex;flex-direction:column;align-items:center;gap:3px;}
+.nav-btn.active{color:#00d4ff;}
+.nav-icon{font-size:20px;}
+.card{background:#000d1a;border:1px solid #0a84ff33;margin-bottom:10px;padding:12px 14px;}
+.section-label{font-size:9px;color:#00d4ff;letter-spacing:3px;margin:14px 0 8px;display:flex;align-items:center;gap:8px;}
+.section-label::before,.section-label::after{content:"";flex:1;height:1px;background:#0a84ff33;}
+.xp-track{height:6px;background:#001428;border:1px solid #0a84ff33;overflow:hidden;}
+.xp-fill{height:100%;background:linear-gradient(90deg,#0a84ff,#00d4ff);transition:width 0.6s ease;box-shadow:0 0 6px #0a84ff;}
+.task-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.task-box{flex:1;display:flex;align-items:center;gap:10px;padding:12px;background:#001428;border:1px solid #0a84ff33;transition:all 0.15s;}
+.task-box.done{background:rgba(10,132,255,0.08);border-color:#0a84ff;box-shadow:0 0 8px #0a84ff22;}
+.task-check{width:20px;height:20px;border:2px solid #4a7a9b;background:transparent;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;transition:all 0.15s;}
+.task-box.done .task-check{background:#0a84ff;border-color:#0a84ff;color:#fff;}
+.task-name{font-size:13px;flex:1;transition:all 0.15s;}
+.task-box.done .task-name{color:#4a7a9b;text-decoration:line-through;}
+.task-xp{font-size:10px;color:#0a84ff;flex-shrink:0;}
+.del-btn{background:none;border:1px solid #0a84ff33;color:#4a7a9b;width:30px;height:30px;font-size:12px;flex-shrink:0;}
+.inp{background:#001428;border:1px solid #0a84ff33;color:#e0f7ff;padding:7px 9px;font-size:12px;outline:none;width:100%;}
+.inp::placeholder{color:#4a7a9b;}
+.btn-primary{background:#0a84ff;border:none;color:#fff;padding:8px;font-size:12px;width:100%;}
+.btn-ghost{background:none;border:1px solid #0a84ff33;color:#4a7a9b;padding:8px;font-size:12px;width:100%;}
+.add-row{display:flex;gap:6px;margin-top:6px;}
+.stat-row{margin-bottom:10px;}
+.stat-head{display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;}
+.stat-track{height:6px;background:#001428;border:1px solid #0a84ff33;}
+.stat-fill{height:100%;background:linear-gradient(90deg,#0a84ff,#00d4ff);transition:width 0.5s;box-shadow:0 0 4px #0a84ff;}
+#toast-area{position:fixed;top:60px;right:16px;z-index:600;display:flex;flex-direction:column;gap:5px;}
+.toast{background:rgba(0,20,40,0.97);border:1px solid #00d4ff;padding:7px 13px;font-size:12px;color:#00d4ff;box-shadow:0 0 10px #00d4ff33;animation:toastIn 0.25s ease;}
+#lvup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:700;display:none;align-items:center;justify-content:center;}
+#lvup-overlay.show{display:flex;}
+#lvup-box{text-align:center;animation:popIn 0.4s ease;}
+.dungeon-card{background:#000d1a;border:1px solid #0a84ff33;padding:14px;margin-bottom:8px;}
+.day-card{background:#000d1a;border:1px solid #0a84ff33;padding:10px 12px;margin-bottom:8px;}
+.day-label{font-size:12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;}
+.day-label.today-day{color:#00d4ff;}
+.mini-task{display:flex;align-items:center;gap:6px;font-size:12px;margin-bottom:3px;}
+.goal-track{height:6px;background:#001428;border:1px solid #0a84ff33;margin:5px 0;}
+.goal-fill{height:100%;transition:width 0.4s;}
+#char-icon-big{font-size:72px;animation:float 3s ease-in-out infinite;filter:drop-shadow(0 0 12px #0a84ff);display:block;text-align:center;margin:8px 0;}
+#char-icon-big.aura{animation:float 3s ease-in-out infinite,aura 2s ease-in-out infinite;}
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+<div class="crt"></div>
+<div id="app">
+  <div id="header">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div>
+        <div style="font-size:9px;color:#00d4ff;letter-spacing:4px;">HUNTER PROTOCOL</div>
+        <div id="date-disp" style="font-size:10px;color:#4a7a9b;"></div>
+      </div>
+      <div style="text-align:right;">
+        <div id="lv-disp" style="font-size:22px;font-weight:bold;color:#0a84ff;text-shadow:0 0 10px #0a84ff;"></div>
+        <div id="char-title" style="font-size:9px;color:#4a7a9b;"></div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:#4a7a9b;margin-bottom:3px;">
+      <span id="xp-curr"></span><span id="xp-next"></span>
+    </div>
+    <div class="xp-track" style="margin-bottom:4px;"><div id="xp-fill" class="xp-fill" style="width:0%"></div></div>
+    <div style="font-size:9px;color:#4a7a9b;text-align:right;margin-bottom:8px;" id="streak-disp"></div>
+    <div id="tabs">
+      <button class="tab-btn active" onclick="switchTab('today')">TODAY</button>
+      <button class="tab-btn" onclick="switchTab('week')">WEEK</button>
+      <button class="tab-btn" onclick="switchTab('status')">STATUS</button>
+      <button class="tab-btn" onclick="switchTab('dungeon')">DUNGEON</button>
+    </div>
+  </div>
+  <div id="content">
+    <div id="page-today" class="page active">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:10px;">
+          <span style="color:#00d4ff;letter-spacing:2px;">TODAY'S RATE</span>
+          <span id="rate-pct" style="font-size:16px;font-weight:bold;color:#0a84ff;"></span>
+        </div>
+        <div class="xp-track" style="height:8px;"><div id="rate-fill" style="height:100%;background:linear-gradient(90deg,#0a84ff,#00d4ff);width:0%;transition:width 0.5s;box-shadow:0 0 6px #0a84ff;"></div></div>
+        <div id="rate-count" style="font-size:10px;color:#4a7a9b;margin-top:4px;"></div>
+      </div>
+      <div class="section-label">TODAY LIMITED</div>
+      <div id="today-tasks"></div>
+      <div id="today-empty" style="display:none;" class="card">
+        <div style="font-size:12px;color:#4a7a9b;text-align:center;padding:8px 0;">今日のタスクなし<br><span style="font-size:10px;">WEEKタブで予定を立てよう</span></div>
+      </div>
+      <div class="section-label">DAILY QUEST</div>
+      <div id="daily-tasks"></div>
+    </div>
+    <div id="page-week" class="page">
+      <div class="section-label">WEEK QUEST</div>
+      <div id="week-grid"></div>
+      <div class="section-label">WEEKLY TASKS</div>
+      <div id="wtask-list"></div>
+      <div id="wtask-add-area">
+        <button class="btn-ghost" style="width:100%;margin-bottom:14px;" onclick="showWTaskForm()">＋ デイリータスクを追加</button>
+      </div>
+      <div id="wtask-form" style="display:none;background:#000d1a;border:1px solid #0a84ff;padding:12px;margin-bottom:14px;">
+        <input class="inp" id="wt-name" placeholder="タスク名" style="margin-bottom:6px;"/>
+        <input class="inp" id="wt-xp" type="number" placeholder="XP（例:20）" style="margin-bottom:6px;"/>
+        <div class="add-row">
+          <button class="btn-primary" onclick="addWeeklyTask()">追加</button>
+          <button class="btn-ghost" onclick="hideWTaskForm()">キャンセル</button>
+        </div>
+      </div>
+      <div class="section-label">WEEK GOALS</div>
+      <div id="wgoal-list"></div>
+      <div id="wgoal-add-area">
+        <button class="btn-ghost" style="width:100%;margin-bottom:14px;" onclick="showGoalForm()">＋ 週間目標を追加</button>
+      </div>
+      <div id="wgoal-form" style="display:none;background:#000d1a;border:1px solid #0a84ff;padding:12px;margin-bottom:14px;">
+        <input class="inp" id="gn-name" placeholder="目標名（例：筋トレ3回）" style="margin-bottom:6px;"/>
+        <div class="add-row" style="margin-bottom:6px;">
+          <input class="inp" id="gn-target" type="number" placeholder="目標値"/>
+          <input class="inp" id="gn-unit" placeholder="単位(回/km)"/>
+        </div>
+        <div class="add-row">
+          <button class="btn-primary" onclick="addGoal()">追加</button>
+          <button class="btn-ghost" onclick="hideGoalForm()">キャンセル</button>
+        </div>
+      </div>
+    </div>
+    <div id="page-status" class="page">
+      <div class="card" style="text-align:center;padding:20px 14px;">
+        <div style="font-size:9px;color:#00d4ff;letter-spacing:4px;margin-bottom:10px;">HUNTER STATUS</div>
+        <div id="char-icon-big">⚔</div>
+        <div id="status-lv" style="font-size:28px;font-weight:bold;color:#0a84ff;text-shadow:0 0 10px #0a84ff;margin:6px 0;"></div>
+        <div id="status-title" style="font-size:13px;color:#00d4ff;margin-bottom:4px;"></div>
+        <div id="status-xp" style="font-size:10px;color:#4a7a9b;margin-bottom:12px;"></div>
+        <div class="xp-track"><div id="status-xp-fill" class="xp-fill" style="width:0%;"></div></div>
+      </div>
+      <div class="section-label">MILESTONES</div>
+      <div id="milestones"></div>
+      <div class="section-label">ABILITY STATS</div>
+      <div id="stat-bars"></div>
+    </div>
+    <div id="page-dungeon" class="page">
+      <div class="card" style="text-align:center;">
+        <div style="font-size:9px;color:#00d4ff;letter-spacing:3px;margin-bottom:8px;">TODAY'S CLEAR RATE</div>
+        <div id="dung-rate" style="font-size:40px;font-weight:bold;"></div>
+        <div id="dung-unlocked" style="margin-top:8px;"></div>
+      </div>
+      <div class="section-label">DUNGEON TIERS</div>
+      <div id="dung-tiers"></div>
+      <div class="section-label">BONUS XP</div>
+      <div id="bonus-list"></div>
+    </div>
+  </div>
+  <div id="nav">
+    <button class="nav-btn active" onclick="switchTab('today')"><span class="nav-icon">📋</span>TODAY</button>
+    <button class="nav-btn" onclick="switchTab('week')"><span class="nav-icon">📅</span>WEEK</button>
+    <button class="nav-btn" onclick="switchTab('status')"><span class="nav-icon">⚔️</span>STATUS</button>
+    <button class="nav-btn" onclick="switchTab('dungeon')"><span class="nav-icon">☠️</span>DUNGEON</button>
+  </div>
+  <div id="toast-area"></div>
+  <div id="lvup-overlay">
+    <div id="lvup-box">
+      <div id="lvup-icon" style="font-size:64px;margin-bottom:8px;"></div>
+      <div style="font-size:10px;color:#00d4ff;letter-spacing:4px;margin-bottom:4px;">LEVEL UP</div>
+      <div id="lvup-lv" style="font-size:48px;font-weight:bold;color:#0a84ff;text-shadow:0 0 20px #0a84ff;"></div>
+      <div id="lvup-title" style="font-size:14px;color:#e0f7ff;margin-top:8px;"></div>
+    </div>
+  </div>
+  <div id="day-form" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:200;align-items:center;justify-content:center;">
+    <div style="background:#000d1a;border:1px solid #0a84ff;padding:20px;width:300px;max-width:90vw;">
+      <div id="day-form-title" style="font-size:11px;color:#00d4ff;letter-spacing:2px;margin-bottom:12px;"></div>
+      <input class="inp" id="dt-name" placeholder="タスク名" style="margin-bottom:8px;"/>
+      <input class="inp" id="dt-xp" type="number" placeholder="XP（例:50）" style="margin-bottom:12px;"/>
+      <div class="add-row">
+        <button class="btn-primary" onclick="submitDayTask()">追加</button>
+        <button class="btn-ghost" onclick="closeDayForm()">キャンセル</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const DAYS=["月","火","水","木","金","土","日"];
+const DAY_KEYS=["mon","tue","wed","thu","fri","sat","sun"];
+const XP_TABLE=[0,100,250,450,700,1000,1350,1750,2200,2700,3250,3850,4500,5200,5950,6750,7600,8500,9450,10450,11500,12600,13750,14950,16200,17500,18850,20250,21700,23200,24750,26350,28000,29700,31450,33250,35100,37000,39000,41000,43100,45250,47450,49700,52000,54350,56750,59200,61700,64250,67000];
+const CHAR_LEVELS=[{lv:1,title:"新人ハンター",icon:"🧑",aura:false},{lv:10,title:"覚醒ハンター",icon:"⚡",aura:true},{lv:25,title:"特殊武器解放",icon:"🗡️",aura:true},{lv:50,title:"S級ハンター",icon:"💠",aura:true},{lv:100,title:"最終覚醒",icon:"👁️",aura:true}];
+const STAT_MAP={"英語":["INT",10],"英単語":["INT",10],"数学":["INT",8],"読書":["FOCUS",10],"筋トレ":["STR",15],"ランニング":["END",12],"走":["END",10],"瞑想":["FOCUS",8],"ストレッチ":["END",5],"水":["END",3],"日記":["DISC",5],"プログラム":["INT",12]};
+const STAT_ICONS={STR:"⚔",INT:"🧠",FOCUS:"🎯",DISC:"🔥",END:"🏃"};
+const STAT_LABELS={STR:"STR 筋力",INT:"INT 知力",FOCUS:"FOCUS 集中",DISC:"DISC 継続",END:"END 持久"};
+const DUNGEON_TIERS=[{rate:70,name:"ノーマルダンジョン",icon:"🏚️",color:"#4a7a9b",reward:"経験値×1.2"},{rate:90,name:"レアダンジョン",icon:"🏰",color:"#9b59b6",reward:"限定称号"},{rate:100,name:"ボスレイド",icon:"☠️",color:"#ff3b5c",reward:"限定装備・スキン"}];
+const BONUS_LIST=[{label:"タスク達成",desc:"1回につき",xp:"設定XP"},{label:"連続達成",desc:"毎日継続ボーナス",xp:"+20XP"},{label:"週間90%以上",desc:"週次ボーナス",xp:"+500XP"},{label:"週間100%",desc:"パーフェクト",xp:"+1000XP"}];
+const DEFAULT_WTASKS=[{id:"wt1",name:"水2L飲む",xp:20},{id:"wt2",name:"ストレッチ",xp:20},{id:"wt3",name:"日記を書く",xp:30},{id:"wt4",name:"瞑想5分",xp:25}];
+const ld=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}};
+const sv=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}};
+const todayStr=()=>new Date().toISOString().slice(0,10);
+const todayDow=()=>(new Date().getDay()+6)%7;
+let state={
+  xp:ld("hp_xp",0),
+  stats:ld("hp_stats",{STR:0,INT:0,FOCUS:0,DISC:0,END:0}),
+  weekPlan:ld("hp_week",{mon:[],tue:[],wed:[],thu:[],fri:[],sat:[],sun:[]}),
+  weeklyTasks:ld("hp_wtasks",DEFAULT_WTASKS),
+  weekGoals:ld("hp_wgoals",[]),
+  checked:(()=>{const s=ld("hp_checked",{});return s.date===todayStr()?s.data:{}})(),
+  weekChecked:ld("hp_wchecked",{}),
+  goalProgress:ld("hp_gprog",{}),
+  streak:ld("hp_streak",{count:0,last:""}),
+};
+let currentTab="today";
+let addingDayKey=null;
+function getLv(xp){for(let i=XP_TABLE.length-1;i>=0;i--){if(xp>=XP_TABLE[i])return i+1;}return 1;}
+function getXPNext(lv){return XP_TABLE[Math.min(lv,XP_TABLE.length-1)]||XP_TABLE[XP_TABLE.length-1];}
+function getXPCurr(lv){return XP_TABLE[Math.min(lv-1,XP_TABLE.length-1)]||0;}
+function xpPct(xp){const lv=getLv(xp);return Math.round((xp-getXPCurr(lv))/(getXPNext(lv)-getXPCurr(lv))*100);}
+function getCharStage(lv){let s=CHAR_LEVELS[0];for(const c of CHAR_LEVELS){if(lv>=c.lv)s=c;else break;}return s;}
+function inferStats(name){const s={};for(const[k,[st,val]] of Object.entries(STAT_MAP)){if(name.includes(k))s[st]=(s[st]||0)+val;}return s;}
+function save(){
+  sv("hp_xp",state.xp);sv("hp_stats",state.stats);sv("hp_week",state.weekPlan);
+  sv("hp_wtasks",state.weeklyTasks);sv("hp_wgoals",state.weekGoals);
+  sv("hp_checked",{date:todayStr(),data:state.checked});
+  sv("hp_wchecked",state.weekChecked);sv("hp_gprog",state.goalProgress);sv("hp_streak",state.streak);
+}
+function showToast(xp,label){
+  const area=document.getElementById("toast-area");
+  const t=document.createElement("div");
+  t.className="toast";
+  t.innerHTML=`+${xp} XP${label?` <span style="color:#4a7a9b;font-size:10px;">— ${label}</span>`:""}`;
+  area.appendChild(t);
+  setTimeout(()=>t.remove(),2000);
+}
+function showLvUp(lv){
+  const stage=getCharStage(lv);
+  document.getElementById("lvup-icon").textContent=stage.icon;
+  document.getElementById("lvup-lv").textContent="Lv."+lv;
+  document.getElementById("lvup-title").textContent=stage.title;
+  const ov=document.getElementById("lvup-overlay");
+  ov.classList.add("show");
+  setTimeout(()=>ov.classList.remove("show"),2500);
+}
+function gainXP(amount,label,statDeltas){
+  const prevLv=getLv(state.xp);
+  state.xp+=amount;
+  const nextLv=getLv(state.xp);
+  if(nextLv>prevLv)setTimeout(()=>showLvUp(nextLv),300);
+  if(statDeltas){for(const[k,v] of Object.entries(statDeltas))state.stats[k]=(state.stats[k]||0)+v;}
+  showToast(amount,label);
+  save();
+  renderHeader();
+  renderStatus();
+}
+function checkTask(id,xp,name){
+  if(state.checked[id])return;
+  state.checked[id]=true;
+  gainXP(xp,name,inferStats(name));
+  const today=todayStr();
+  const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  if(state.streak.last!==today){
+    state.streak.count=state.streak.last===yesterday?state.streak.count+1:1;
+    state.streak.last=today;
+    if(state.streak.count>1)gainXP(20,`${state.streak.count}日連続ボーナス`,{DISC:2});
+  }
+  save();renderToday();renderDungeon();
+}
+function checkWeeklyTask(id,xp,name){
+  const today=todayStr();
+  if(state.weekChecked[id]?.[today])return;
+  if(!state.weekChecked[id])state.weekChecked[id]={};
+  state.weekChecked[id][today]=true;
+  gainXP(xp,name,inferStats(name));
+  save();renderToday();renderDungeon();
+}
+function switchTab(tab){
+  currentTab=tab;
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
+  document.getElementById("page-"+tab).classList.add("active");
+  const idx=["today","week","status","dungeon"].indexOf(tab);
+  document.querySelectorAll(".tab-btn")[idx].classList.add("active");
+  document.querySelectorAll(".nav-btn")[idx].classList.add("active");
+  if(tab==="today")renderToday();
+  if(tab==="week")renderWeek();
+  if(tab==="status")renderStatus();
+  if(tab==="dungeon")renderDungeon();
+}
+function renderHeader(){
+  const lv=getLv(state.xp);const stage=getCharStage(lv);const pct=xpPct(state.xp);
+  const d=new Date();const dow=todayDow();
+  document.getElementById("date-disp").textContent=`${d.getMonth()+1}月${d.getDate()}日 (${DAYS[dow]})`;
+  document.getElementById("lv-disp").textContent="Lv."+lv;
+  document.getElementById("char-title").textContent=stage.title;
+  document.getElementById("xp-curr").textContent="XP "+state.xp.toLocaleString();
+  document.getElementById("xp-next").textContent="NEXT "+getXPNext(lv).toLocaleString();
+  document.getElementById("xp-fill").style.width=pct+"%";
+  document.getElementById("streak-disp").textContent="🔥 "+state.streak.count+"日連続";
+}
+function renderToday(){
+  const dow=todayDow();const dayKey=DAY_KEYS[dow];
+  const todayTasks=state.weekPlan[dayKey]||[];const today=todayStr();
+  const tt=document.getElementById("today-tasks");const te=document.getElementById("today-empty");
+  tt.innerHTML="";
+  if(todayTasks.length===0){te.style.display="block";}
+  else{
+    te.style.display="none";
+    todayTasks.forEach(t=>{
+      const done=!!state.checked[t.id];
+      tt.insertAdjacentHTML("beforeend",`<div class="task-row"><div class="task-box${done?" done":""}" onclick="checkTask('${t.id}',${t.xp},'${t.name.replace(/'/g,"\\'")}')"><div class="task-check">${done?"✓":""}</div><span class="task-name">${t.name}</span><span class="task-xp">+${t.xp}XP</span></div><button class="del-btn" onclick="removeDayTask('${dayKey}','${t.id}')">✕</button></div>`);
+    });
+  }
+  const dt=document.getElementById("daily-tasks");dt.innerHTML="";
+  state.weeklyTasks.forEach(t=>{
+    const done=!!(state.weekChecked[t.id]?.[today]);
+    dt.insertAdjacentHTML("beforeend",`<div class="task-row"><div class="task-box${done?" done":""}" onclick="checkWeeklyTask('${t.id}',${t.xp},'${t.name.replace(/'/g,"\\'")}')"><div class="task-check">${done?"✓":""}</div><span class="task-name">${t.name}</span><span class="task-xp">+${t.xp}XP</span></div></div>`);
+  });
+  const allIds=[...todayTasks.map(t=>t.id),...state.weeklyTasks.map(t=>t.id)];
+  const total=allIds.length;
+  const done=allIds.filter(id=>{if(state.weeklyTasks.find(w=>w.id===id))return state.weekChecked[id]?.[today];return state.checked[id];}).length;
+  const rate=total>0?Math.round(done/total*100):0;
+  document.getElementById("rate-pct").textContent=rate+"%";
+  document.getElementById("rate-pct").style.color=rate===100?"#ffd700":"#0a84ff";
+  document.getElementById("rate-fill").style.width=rate+"%";
+  document.getElementById("rate-fill").style.background=rate===100?"linear-gradient(90deg,#ffd700,#ff8c00)":"linear-gradient(90deg,#0a84ff,#00d4ff)";
+  document.getElementById("rate-count").textContent=`${done} / ${total} 完了`;
+}
+function renderWeek(){
+  const dow=todayDow();const grid=document.getElementById("week-grid");grid.innerHTML="";
+  DAY_KEYS.forEach((dk,i)=>{
+    const tasks=state.weekPlan[dk]||[];const isToday=i===dow;
+    grid.insertAdjacentHTML("beforeend",`<div class="day-card"><div class="day-label${isToday?" today-day":""}"><span>${isToday?"▶ ":""}${DAYS[i]}曜日</span><button style="background:none;border:1px solid #0a84ff33;color:#4a7a9b;padding:2px 8px;font-size:10px;" onclick="openDayForm('${dk}','${DAYS[i]}')">＋</button></div>${tasks.length===0?'<div style="font-size:10px;color:#1a3a5c;">タスクなし</div>':""}${tasks.map(t=>`<div class="mini-task"><span style="flex:1;">□ ${t.name}</span><span style="font-size:10px;color:#0a84ff;">+${t.xp}XP</span><button style="background:none;border:none;color:#4a7a9b;font-size:11px;margin-left:4px;" onclick="removeDayTask('${dk}','${t.id}')">✕</button></div>`).join("")}</div>`);
+  });
+  const wl=document.getElementById("wtask-list");wl.innerHTML="";
+  state.weeklyTasks.forEach(t=>{
+    wl.insertAdjacentHTML("beforeend",`<div class="task-row"><div style="flex:1;background:#001428;border:1px solid #0a84ff33;padding:10px 12px;display:flex;justify-content:space-between;"><span style="font-size:13px;">${t.name}</span><span style="font-size:10px;color:#0a84ff;">+${t.xp}XP</span></div><button class="del-btn" onclick="removeWeeklyTask('${t.id}')">✕</button></div>`);
+  });
+  const gl=document.getElementById("wgoal-list");gl.innerHTML="";
+  state.weekGoals.forEach(g=>{
+    const prog=state.goalProgress[g.id]||0;const pct=Math.min(Math.round(prog/g.target*100),100);
+    gl.insertAdjacentHTML("beforeend",`<div class="card"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>${g.name}</span><span style="color:${pct>=100?"#ffd700":"#0a84ff"};font-size:11px;">${prog}/${g.target}${g.unit}</span></div><div class="goal-track"><div class="goal-fill" style="width:${pct}%;background:${pct>=100?"linear-gradient(90deg,#ffd700,#ff8c00)":"linear-gradient(90deg,#0a84ff,#00d4ff)"};"></div></div><div style="display:flex;gap:6px;margin-top:8px;"><button style="flex:1;background:#001428;border:1px solid #0a84ff33;color:#e0f7ff;padding:5px;font-size:11px;" onclick="addGoalProg('${g.id}',1)">+1</button><button style="flex:1;background:#001428;border:1px solid #0a84ff33;color:#e0f7ff;padding:5px;font-size:11px;" onclick="addGoalProg('${g.id}',5)">+5</button><button style="background:none;border:1px solid #0a84ff33;color:#4a7a9b;padding:5px 8px;font-size:11px;" onclick="removeGoal('${g.id}')">✕</button></div></div>`);
+  });
+}
+function renderStatus(){
+  const lv=getLv(state.xp);const stage=getCharStage(lv);const pct=xpPct(state.xp);
+  const icon=document.getElementById("char-icon-big");
+  icon.textContent=stage.icon;icon.className=stage.aura?"aura":"";
+  document.getElementById("status-lv").textContent="Lv."+lv;
+  document.getElementById("status-title").textContent=stage.title;
+  document.getElementById("status-xp").textContent=`XP ${state.xp.toLocaleString()} / ${getXPNext(lv).toLocaleString()}`;
+  document.getElementById("status-xp-fill").style.width=pct+"%";
+  const ms=document.getElementById("milestones");ms.innerHTML="";
+  CHAR_LEVELS.forEach(cl=>{
+    const unlocked=lv>=cl.lv;
+    ms.insertAdjacentHTML("beforeend",`<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:6px;background:#000d1a;border:1px solid ${unlocked?"#0a84ff":"#0a84ff33"};opacity:${unlocked?1:0.5};"><span style="font-size:22px;">${cl.icon}</span><div style="flex:1;"><div style="font-size:12px;color:${unlocked?"#e0f7ff":"#4a7a9b"};">${cl.title}</div><div style="font-size:10px;color:#4a7a9b;">Lv.${cl.lv}〜</div></div>${unlocked?'<span style="font-size:10px;color:#00d4ff;">解放</span>':""}</div>`);
+  });
+  const sb=document.getElementById("stat-bars");sb.innerHTML="";
+  const maxVal=Math.max(...Object.values(state.stats),1);
+  for(const[k,label] of Object.entries(STAT_LABELS)){
+    const val=state.stats[k]||0;const pct=Math.round(val/maxVal*100);
+    sb.insertAdjacentHTML("beforeend",`<div class="stat-row"><div class="stat-head"><span style="color:#00d4ff;">${STAT_ICONS[k]} ${label}</span><span>${val}</span></div><div class="stat-track"><div class="stat-fill" style="width:${pct}%;"></div></div></div>`);
+  }
+}
+function renderDungeon(){
+  const dow=todayDow();const dayKey=DAY_KEYS[dow];
+  const todayTasks=state.weekPlan[dayKey]||[];const today=todayStr();
+  const allIds=[...todayTasks.map(t=>t.id),...state.weeklyTasks.map(t=>t.id)];
+  const total=allIds.length;
+  const done=allIds.filter(id=>{if(state.weeklyTasks.find(w=>w.id===id))return state.weekChecked[id]?.[today];return state.checked[id];}).length;
+  const rate=total>0?Math.round(done/total*100):0;
+  const unlocked=DUNGEON_TIERS.filter(d=>rate>=d.rate).slice(-1)[0]||null;
+  const dr=document.getElementById("dung-rate");
+  dr.textContent=rate+"%";dr.style.color=rate>=90?"#ffd700":rate>=70?"#0a84ff":"#4a7a9b";
+  dr.style.textShadow=rate>=70?"0 0 12px #0a84ff":"none";
+  document.getElementById("dung-unlocked").innerHTML=unlocked?`<div style="padding:8px;background:rgba(10,132,255,0.1);border:1px solid #0a84ff;"><div style="font-size:18px;margin-bottom:4px;">${unlocked.icon}</div><div style="font-size:12px;color:${unlocked.color};">${unlocked.name} 解放！</div><div style="font-size:10px;color:#4a7a9b;margin-top:2px;">報酬：${unlocked.reward}</div></div>`:'<div style="font-size:11px;color:#4a7a9b;">達成率70%でダンジョン解放</div>';
+  const dt=document.getElementById("dung-tiers");dt.innerHTML="";
+  DUNGEON_TIERS.forEach(d=>{
+    const on=rate>=d.rate;
+    dt.insertAdjacentHTML("beforeend",`<div class="dungeon-card" style="${on?`border-color:${d.color};box-shadow:0 0 14px ${d.color}44`:""}"><div style="display:flex;align-items:center;gap:12px;"><span style="font-size:30px;">${d.icon}</span><div style="flex:1;"><div style="font-size:13px;color:${on?"#e0f7ff":"#4a7a9b"};margin-bottom:2px;">${d.name}</div><div style="font-size:10px;color:#4a7a9b;">達成率 ${d.rate}%〜</div><div style="font-size:10px;color:${d.color};margin-top:2px;">報酬：${d.reward}</div></div>${on?`<div style="font-size:10px;color:${d.color};border:1px solid ${d.color};padding:4px 8px;">OPEN</div>`:""}</div></div>`);
+  });
+  const bl=document.getElementById("bonus-list");bl.innerHTML="";
+  BONUS_LIST.forEach(b=>{
+    bl.insertAdjacentHTML("beforeend",`<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;margin-bottom:6px;background:#000d1a;border:1px solid #0a84ff33;"><div><div style="font-size:12px;">${b.label}</div><div style="font-size:10px;color:#4a7a9b;">${b.desc}</div></div><div style="font-size:13px;color:#0a84ff;font-weight:bold;">${b.xp}</div></div>`);
+  });
+}
+function openDayForm(dk,dayName){addingDayKey=dk;document.getElementById("day-form-title").textContent=dayName+"曜日のタスクを追加";document.getElementById("dt-name").value="";document.getElementById("dt-xp").value="";document.getElementById("day-form").style.display="flex";setTimeout(()=>document.getElementById("dt-name").focus(),100);}
+function closeDayForm(){document.getElementById("day-form").style.display="none";addingDayKey=null;}
+function submitDayTask(){const name=document.getElementById("dt-name").value.trim();const xp=parseInt(document.getElementById("dt-xp").value)||50;if(!name||!addingDayKey)return;const t={id:"dt_"+Date.now(),name,xp};if(!state.weekPlan[addingDayKey])state.weekPlan[addingDayKey]=[];state.weekPlan[addingDayKey].push(t);save();closeDayForm();renderWeek();renderToday();}
+function removeDayTask(dk,id){state.weekPlan[dk]=state.weekPlan[dk].filter(t=>t.id!==id);save();renderWeek();renderToday();}
+function showWTaskForm(){document.getElementById("wtask-form").style.display="block";document.getElementById("wtask-add-area").style.display="none";}
+function hideWTaskForm(){document.getElementById("wtask-form").style.display="none";document.getElementById("wtask-add-area").style.display="block";}
+function addWeeklyTask(){const name=document.getElementById("wt-name").value.trim();const xp=parseInt(document.getElementById("wt-xp").value)||20;if(!name)return;state.weeklyTasks.push({id:"wt_"+Date.now(),name,xp});save();hideWTaskForm();renderWeek();renderToday();}
+function removeWeeklyTask(id){state.weeklyTasks=state.weeklyTasks.filter(t=>t.id!==id);save();renderWeek();renderToday();}
+function showGoalForm(){document.getElementById("wgoal-form").style.display="block";document.getElementById("wgoal-add-area").style.display="none";}
+function hideGoalForm(){document.getElementById("wgoal-form").style.display="none";document.getElementById("wgoal-add-area").style.display="block";}
+function addGoal(){const name=document.getElementById("gn-name").value.trim();const target=parseInt(document.getElementById("gn-target").value)||1;const unit=document.getElementById("gn-unit").value.trim();if(!name)return;const g={id:"g_"+Date.now(),name,target,unit};state.weekGoals.push(g);state.goalProgress[g.id]=0;save();hideGoalForm();renderWeek();}
+function removeGoal(id){state.weekGoals=state.weekGoals.filter(g=>g.id!==id);delete state.goalProgress[id];save();renderWeek();}
+function addGoalProg(id,val){const g=state.weekGoals.find(g=>g.id===id);if(!g)return;state.goalProgress[id]=Math.min((state.goalProgress[id]||0)+val,g.target);if(state.goalProgress[id]>=g.target)gainXP(100,g.name+"達成！",{DISC:5});save();renderWeek();}
+renderHeader();renderToday();renderDungeon();
+</script>
+</body>
+</html>
